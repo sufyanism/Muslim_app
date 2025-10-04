@@ -1,45 +1,33 @@
-/**
- * Sample React Native App
- * https://github.com/facebook/react-native
- *
- * @format
- */
+// App.js
+import React from 'react';
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import Search from './Component/SearchSurah';
+import SurahReader from './Component/Read';
+import Deirection from './Component/Deirection'
+import Home from'./Component/Home'
+import PrayerTime from './Component/PrayerTime'
+import Read from './Component/Read'
+import Reading from './Component/Reading'
+import SearchSurah from './Component/SearchSurah'
 
-import { NewAppScreen } from '@react-native/new-app-screen';
-import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
-import {
-  SafeAreaProvider,
-  useSafeAreaInsets,
-} from 'react-native-safe-area-context';
+const Stack = createNativeStackNavigator();
 
-function App() {
-  const isDarkMode = useColorScheme() === 'dark';
-
+const App = () => {
   return (
-    <SafeAreaProvider>
-      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
-      <AppContent />
-    </SafeAreaProvider>
+    <NavigationContainer>
+      <Stack.Navigator  initialRouteName="Home" screenOptions={{
+          headerShown: false,   // 🔥 hides the top bar everywhere
+        }}>
+        <Stack.Screen name="Home" component={Home} />
+        <Stack.Screen name="Deirection" component={Deirection} />
+        <Stack.Screen name="PrayerTime" component={PrayerTime} />
+        <Stack.Screen name="Read" component={Read} />
+        {/* <Stack.Screen name="Reading" component={Reading} /> */}
+        <Stack.Screen name="SearchSurah" component={SearchSurah} />
+      </Stack.Navigator>
+    </NavigationContainer>
   );
-}
-
-function AppContent() {
-  const safeAreaInsets = useSafeAreaInsets();
-
-  return (
-    <View style={styles.container}>
-      <NewAppScreen
-        templateFileName="App.tsx"
-        safeAreaInsets={safeAreaInsets}
-      />
-    </View>
-  );
-}
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-});
+};
 
 export default App;

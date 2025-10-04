@@ -1,0 +1,1312 @@
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  ActivityIndicator,
+  Dimensions,
+  Animated,
+} from 'react-native';
+import axios from 'axios';
+import Geolocation from 'react-native-geolocation-service';
+import CompassHeading from 'react-native-compass-heading';
+
+const { width } = Dimensions.get('window');
+const COMPASS_SIZE = width * 0.8;
+const CENTER = COMPASS_SIZE / 2;
+
+const QiblaCompass = () => {
+  const [direction, setDirection] = useState(null); // Qibla direction from north
+  const [coords, setCoords] = useState(null);
+  const [heading, setHeading] = useState(0); // device heading (0‑360)
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Animated value for smooth rotation
+  const animatedHeading = useRef(new Animated.Value(0)).current;
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'App needs location access to find Qibla direction',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const fetchQiblaDirection = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `https://api.aladhan.com/v1/qibla/${latitude}/${longitude}`
+      );
+      if (response.data.code === 200) {
+        return response.data.data.direction;
+      } else {
+        throw new Error('Failed to fetch Qibla direction');
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  };
+
+  // Get location and compute Qibla on mount
+  useEffect(() => {
+    const getQibla = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setErrorMsg('Location permission denied');
+        setLoading(false);
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setCoords(position.coords);
+          try {
+            const q = await fetchQiblaDirection(latitude, longitude);
+            setDirection(q);
+          } catch (err) {
+            setErrorMsg(err.message);
+          } finally {
+            setLoading(false);
+          }
+        },
+        (err) => {
+          setErrorMsg(err.message);
+          setLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    };
+
+    getQibla();
+  }, []);
+
+  // Subscribe to heading sensor and animate rotation smoothly
+  useEffect(() => {
+    const degree_update_rate = 0.5; // degrees change to trigger update
+
+    const subscription = CompassHeading.start(degree_update_rate, (data) => {
+      const { heading: h } = data;
+
+      // Animate heading change smoothly
+      Animated.timing(animatedHeading, {
+        toValue: h,
+        duration: 50, // smooth transition duration in ms
+        useNativeDriver: true,
+      }).start();
+
+      setHeading(h);
+    });
+
+    return () => {
+      CompassHeading.stop();
+      if (subscription && subscription.remove) subscription.remove();
+    };
+  }, [animatedHeading]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Fetching Qibla & heading...</Text>
+      </View>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Error: {errorMsg}</Text>
+      </View>
+    );
+  }
+
+  // Build ticks & labels
+  const ticks = [];
+  for (let i = 0; i < 360; i += 3) {
+    const isMajor = i % 30 === 0;
+    const length = isMajor ? 14 : 7;
+    const thickness = isMajor ? 2 : 1;
+    const radius = CENTER - 20;
+    const angleRad = ((i - 90) * Math.PI) / 180;
+    const x2 = CENTER + (radius - length) * Math.cos(angleRad);
+    const y2 = CENTER + (radius - length) * Math.sin(angleRad);
+    ticks.push(
+      <View
+        key={`tick-${i}`}
+        style={{
+          position: 'absolute',
+          left: x2,
+          top: y2,
+          width: thickness,
+          height: length,
+          backgroundColor: '#fff',
+          transform: [{ translateX: -thickness / 2 }, { rotate: `${i}deg` }],
+          borderRadius: 1,
+        }}
+      />
+    );
+  }
+
+  const degreeNumbers = [];
+  for (let i = 0; i < 360; i += 30) {
+    const radius = CENTER - 38;
+    const angleRad = ((i - 90) * Math.PI) / 180;
+    const x = CENTER + radius * Math.cos(angleRad);
+    const y = CENTER + radius * Math.sin(angleRad);
+    degreeNumbers.push(
+      <Text
+        key={`degnum-${i}`}
+        style={{
+          position: 'absolute',
+          left: x - 12,
+          top: y - 10,
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: '500',
+          textAlign: 'center',
+          width: 24,
+        }}
+      >
+        {i}
+      </Text>
+    );
+  }
+
+  const cardinals = [
+    { label: 'N', top: CENTER - 110, left: CENTER - 10 },
+    { label: 'E', top: CENTER - 10, left: CENTER + 100 },
+    { label: 'S', top: CENTER + 90, left: CENTER - 10 },
+    { label: 'W', top: CENTER - 10, left: CENTER - 120 },
+  ];
+
+  // Interpolate animatedHeading to degrees strings for rotation
+  const compassRotation = animatedHeading.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['0deg', '360deg'],
+  });
+
+  // For inverse rotation of compass (rotate opposite to device heading)
+  const negatedRotation = animatedHeading.interpolate({
+    inputRange: [0, 360],
+    outputRange: ['0deg', '-360deg'],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <View style={styles.container}>
+      <Animated.View
+        style={[
+          styles.compassContainer,
+          {
+            width: COMPASS_SIZE,
+            height: COMPASS_SIZE,
+            transform: [{ rotate: negatedRotation }],
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.outerCircle,
+            {
+              width: COMPASS_SIZE,
+              height: COMPASS_SIZE,
+              borderRadius: COMPASS_SIZE / 2,
+            },
+          ]}
+        />
+        {ticks}
+        {degreeNumbers}
+        {cardinals.map(({ label, top, left }) => (
+          <Text
+            key={label}
+            style={[styles.cardinalText, { top, left, position: 'absolute' }]}
+          >
+            {label}
+          </Text>
+        ))}
+        <View
+          style={[
+            styles.crosshair,
+            {
+              top: CENTER - 1,
+              left: CENTER - COMPASS_SIZE / 2,
+              width: COMPASS_SIZE,
+              height: 2,
+              position: 'absolute',
+            },
+          ]}
+        />
+        <View
+          style={[
+            styles.crosshair,
+            {
+              left: CENTER - 1,
+              top: CENTER - COMPASS_SIZE / 2,
+              height: COMPASS_SIZE,
+              width: 2,
+              position: 'absolute',
+            },
+          ]}
+        />
+
+        {/* Qibla needle fixed relative to screen, rotate by (direction) */}
+        <View
+          style={[
+            styles.needleContainer,
+            {
+              top: CENTER,
+              left: CENTER,
+              transform: [{ rotate: `${direction}deg` }],
+            },
+          ]}
+        >
+          <View style={styles.needle} />
+          <View style={styles.needleBase} />
+        </View>
+      </Animated.View>
+
+      <Text style={styles.directionText}>{direction.toFixed(0)}°</Text>
+
+      {coords && (
+        <View style={styles.locationBox}>
+          <Text style={styles.locationText}>
+            Lat: {coords.latitude.toFixed(6)}, Lon: {coords.longitude.toFixed(6)}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  compassContainer: {
+    position: 'relative',
+  },
+  outerCircle: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: '#111',
+  },
+  cardinalText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  crosshair: {
+    position: 'absolute',
+    backgroundColor: '#555',
+  },
+  needleContainer: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  needle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 30,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  needleBase: {
+    width: 8,
+    height: 8,
+    backgroundColor: '#FF4500',
+    borderRadius: 4,
+    marginTop: -5,
+  },
+  directionText: {
+    color: '#fff',
+    fontSize: 42,
+    fontWeight: '700',
+    marginTop: 30,
+  },
+  locationBox: {
+    marginTop: 15,
+    alignItems: 'center',
+  },
+  locationText: {
+    color: '#ccc',
+    fontSize: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    marginTop: 10,
+    color: '#999',
+  },
+  errorText: {
+    fontSize: 16,
+    color: 'red',
+  },
+  centered: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default QiblaCompass;
+
+
+//////////////////////////////////////////////////////////////////////
+
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
+import axios from 'axios';
+import Geolocation from 'react-native-geolocation-service';
+import CompassHeading from 'react-native-compass-heading';
+
+const { width } = Dimensions.get('window');
+const COMPASS_SIZE = width * 0.8;
+const CENTER = COMPASS_SIZE / 2;
+
+const QiblaCompass = () => {
+  const [direction, setDirection] = useState(null); // Qibla direction from north
+  const [coords, setCoords] = useState(null);
+  const [heading, setHeading] = useState(0); // device heading (0‑360)
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'App needs location access to find Qibla direction',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
+  const fetchQiblaDirection = async (latitude, longitude) => {
+    try {
+      const response = await axios.get(
+        `https://api.aladhan.com/v1/qibla/${latitude}/${longitude}`
+      );
+      if (response.data.code === 200) {
+        return response.data.data.direction;
+      } else {
+        throw new Error('Failed to fetch Qibla direction');
+      }
+    } catch (error) {
+      throw new Error(error.message);
+    }
+  };
+
+  // Get location and compute Qibla on mount
+  useEffect(() => {
+    const getQibla = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setErrorMsg('Location permission denied');
+        setLoading(false);
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setCoords(position.coords);
+          try {
+            const q = await fetchQiblaDirection(latitude, longitude);
+            setDirection(q);
+          } catch (err) {
+            setErrorMsg(err.message);
+          } finally {
+            setLoading(false);
+          }
+        },
+        (err) => {
+          setErrorMsg(err.message);
+          setLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    };
+
+    getQibla();
+  }, []);
+
+  // Subscribe to heading sensor
+  useEffect(() => {
+    const degree_update_rate = 1; // how often in degrees updates sent
+    CompassHeading.start(degree_update_rate, (data) => {
+      const { heading: h } = data;
+      if (typeof h === 'number') {
+        setHeading(h);
+      }
+    });
+
+    return () => {
+      CompassHeading.stop();
+    };
+  }, []);
+
+  // Build ticks & labels
+  const ticks = [];
+  for (let i = 0; i < 360; i += 3) {
+    const isMajor = i % 30 === 0;
+    const length = isMajor ? 14 : 7;
+    const thickness = isMajor ? 2 : 1;
+    const radius = CENTER - 20;
+    const angleRad = ((i - 90) * Math.PI) / 180;
+    const x2 = CENTER + (radius - length) * Math.cos(angleRad);
+    const y2 = CENTER + (radius - length) * Math.sin(angleRad);
+    ticks.push(
+      <View
+        key={`tick-${i}`}
+        style={{
+          position: 'absolute',
+          left: x2,
+          top: y2,
+          width: thickness,
+          height: length,
+          backgroundColor: '#fff',
+          transform: [{ translateX: -thickness / 2 }, { rotate: `${i}deg` }],
+          borderRadius: 1,
+        }}
+      />
+    );
+  }
+
+  const degreeNumbers = [];
+  for (let i = 0; i < 360; i += 30) {
+    const radius = CENTER - 38;
+    const angleRad = ((i - 90) * Math.PI) / 180;
+    const x = CENTER + radius * Math.cos(angleRad);
+    const y = CENTER + radius * Math.sin(angleRad);
+    degreeNumbers.push(
+      <Text
+        key={`degnum-${i}`}
+        style={{
+          position: 'absolute',
+          left: x - 12,
+          top: y - 10,
+          color: '#fff',
+          fontSize: 14,
+          fontWeight: '500',
+          textAlign: 'center',
+          width: 24,
+        }}
+      >
+        {i}
+      </Text>
+    );
+  }
+
+  const cardinals = [
+    { label: 'N', top: CENTER - 110, left: CENTER - 10 },
+    { label: 'E', top: CENTER - 10, left: CENTER + 100 },
+    { label: 'S', top: CENTER + 90, left: CENTER - 10 },
+    { label: 'W', top: CENTER - 10, left: CENTER - 120 },
+  ];
+
+  return (
+    <View style={styles.container}>
+      {loading && (
+        <View style={styles.centered}>
+          <ActivityIndicator size="large" color="#fff" />
+          <Text style={styles.loadingText}>Fetching Qibla & heading...</Text>
+        </View>
+      )}
+
+      {!loading && errorMsg && (
+        <View style={styles.centered}>
+          <Text style={styles.errorText}>Error: {errorMsg}</Text>
+        </View>
+      )}
+
+      {!loading && !errorMsg && (
+        <>
+          <View
+            style={[
+              styles.compassContainer,
+              {
+                width: COMPASS_SIZE,
+                height: COMPASS_SIZE,
+                transform: [{ rotate: `${-heading}deg` }],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.outerCircle,
+                {
+                  width: COMPASS_SIZE,
+                  height: COMPASS_SIZE,
+                  borderRadius: COMPASS_SIZE / 2,
+                },
+              ]}
+            />
+            {ticks}
+            {degreeNumbers}
+            {cardinals.map(({ label, top, left }) => (
+              <Text
+                key={label}
+                style={[styles.cardinalText, { top, left, position: 'absolute' }]}
+              >
+                {label}
+              </Text>
+            ))}
+            <View
+              style={[
+                styles.crosshair,
+                {
+                  top: CENTER - 1,
+                  left: CENTER - COMPASS_SIZE / 2,
+                  width: COMPASS_SIZE,
+                  height: 2,
+                  position: 'absolute',
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.crosshair,
+                {
+                  left: CENTER - 1,
+                  top: CENTER - COMPASS_SIZE / 2,
+                  height: COMPASS_SIZE,
+                  width: 2,
+                  position: 'absolute',
+                },
+              ]}
+            />
+
+            {/* Qibla needle fixed relative to screen, rotate by (direction) */}
+            <View
+              style={[
+                styles.needleContainer,
+                {
+                  top: CENTER,
+                  left: CENTER,
+                  transform: [{ rotate: `${direction ?? 0}deg` }],
+                },
+              ]}
+            >
+              <View style={styles.needle} />
+              <View style={styles.needleBase} />
+            </View>
+          </View>
+
+          <Text style={styles.directionText}>
+            {typeof direction === 'number' ? direction.toFixed(0) : '--'}°
+          </Text>
+
+          {coords && (
+            <View style={styles.locationBox}>
+              <Text style={styles.locationText}>
+                Lat: {coords.latitude.toFixed(6)}, Lon: {coords.longitude.toFixed(6)}
+              </Text>
+            </View>
+          )}
+        </>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+  },
+  compassContainer: {
+    position: 'relative',
+  },
+  outerCircle: {
+    position: 'absolute',
+    borderWidth: 2,
+    borderColor: '#fff',
+    backgroundColor: '#111',
+  },
+  cardinalText: {
+    color: '#fff',
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  crosshair: {
+    position: 'absolute',
+    backgroundColor: '#555',
+  },
+  needleContainer: {
+    position: 'absolute',
+    width: 0,
+    height: 0,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  needle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 10,
+    borderRightWidth: 10,
+    borderBottomWidth: 30,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  needleBase: {
+    width: 20,
+    height: 20,
+    backgroundColor: '#FF4500',
+    borderRadius: 10,
+    position: 'absolute',
+    top: 12,
+  },
+  directionText: {
+    color: '#FF4500',
+    fontSize: 32,
+    fontWeight: '700',
+    marginTop: 40,
+    textAlign: 'center',
+  },
+  loadingText: {
+    color: '#fff',
+    fontSize: 18,
+    marginTop: 20,
+  },
+  errorText: {
+    color: '#f44336',
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  centered: {
+    alignItems: 'center',
+  },
+  locationBox: {
+    marginTop: 20,
+  },
+  locationText: {
+    color: '#aaa',
+    fontSize: 16,
+  },
+});
+
+export default QiblaCompass;
+/////////////////////////////////////////  with out any extrernla api
+
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  ActivityIndicator,
+  Dimensions,
+} from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+import CompassHeading from 'react-native-compass-heading';
+
+const { width } = Dimensions.get('window');
+const COMPASS_SIZE = width * 0.8;
+const CENTER = COMPASS_SIZE / 2;
+
+const MAKKAH_LAT = 21.4225;
+const MAKKAH_LON = 39.8262;
+
+function calculateQiblaBearing(lat1, lon1) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(MAKKAH_LAT);
+  const Δλ = toRad(MAKKAH_LON - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) -
+    Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  let θ = Math.atan2(y, x);
+  θ = toDeg(θ);
+  return (θ + 360) % 360;
+}
+
+const QiblaCompass = () => {
+  // Hooks always in same order
+  const [coords, setCoords] = useState(null);
+  const [heading, setHeading] = useState(0);
+  const [qiblaDirection, setQiblaDirection] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'App needs location access to find Qibla direction',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+      return true;
+    };
+
+    const getLocation = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setErrorMsg('Location permission denied');
+        setLoading(false);
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCoords(position.coords);
+          const bearing = calculateQiblaBearing(latitude, longitude);
+          setQiblaDirection(bearing);
+          setLoading(false);
+        },
+        (error) => {
+          setErrorMsg(error.message);
+          setLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    };
+
+    getLocation();
+  }, []);
+
+  useEffect(() => {
+    const degree_update_rate = 1;
+    CompassHeading.start(degree_update_rate, ({ heading }) => {
+      if (typeof heading === 'number') {
+        setHeading(heading);
+      }
+    });
+
+    return () => {
+      CompassHeading.stop();
+    };
+  }, []);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Fetching location and heading...</Text>
+      </View>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Error: {errorMsg}</Text>
+      </View>
+    );
+  }
+
+  const needleRotation =
+    qiblaDirection !== null ? qiblaDirection - heading : 0;
+
+  return (
+    <View style={styles.container}>
+      <View
+        style={[
+          styles.compassContainer,
+          {
+            width: COMPASS_SIZE,
+            height: COMPASS_SIZE,
+            borderRadius: COMPASS_SIZE / 2,
+            borderWidth: 2,
+            borderColor: '#fff',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.compassCircle,
+            {
+              width: COMPASS_SIZE - 40,
+              height: COMPASS_SIZE - 40,
+              borderRadius: (COMPASS_SIZE - 40) / 2,
+              transform: [{ rotate: `${-heading}deg` }],
+              borderWidth: 1,
+              borderColor: '#ccc',
+              position: 'absolute',
+              top: 20,
+              left: 20,
+            },
+          ]}
+        />
+
+        <View
+          style={[
+            styles.needleContainer,
+            {
+              transform: [{ rotate: `${needleRotation}deg` }],
+            },
+          ]}
+        >
+          <View style={styles.needle} />
+          <View style={styles.needleBase} />
+        </View>
+
+        <View style={styles.centerDot} />
+      </View>
+
+      <Text style={styles.directionText}>
+        Qibla Direction: {qiblaDirection !== null ? qiblaDirection.toFixed(0) : 'N/A'}°
+      </Text>
+      <Text style={styles.directionText}>
+        Device Heading: {typeof heading === 'number' ? heading.toFixed(0) : 'N/A'}°
+      </Text>
+
+      {coords && (
+        <Text style={styles.locationText}>
+          Location: {coords.latitude.toFixed(6)}, {coords.longitude.toFixed(6)}
+        </Text>
+      )}
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
+  compassContainer: { position: 'relative' },
+  compassCircle: { backgroundColor: '#222' },
+  needleContainer: { width: 0, height: 0, justifyContent: 'center', alignItems: 'center' },
+  needle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 60,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  needleBase: { width: 14, height: 14, backgroundColor: '#FF4500', borderRadius: 7, position: 'absolute', top: 50, left: -7 },
+  centerDot: { width: 16, height: 16, backgroundColor: '#fff', borderRadius: 8, position: 'absolute', top: CENTER - 8, left: CENTER - 8 },
+  directionText: { marginTop: 30, fontSize: 20, color: '#fff', fontWeight: 'bold' },
+  locationText: { marginTop: 10, fontSize: 16, color: '#ccc' },
+  loadingText: { color: '#999', marginTop: 10, fontSize: 16 },
+  errorText: { color: 'red', fontSize: 16 },
+  centered: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+});
+
+export default QiblaCompass;
+//////////////////////////////////////////////////////
+
+import React, { useEffect, useState, useRef } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  PermissionsAndroid,
+  Platform,
+  ActivityIndicator,
+  Dimensions,
+  Animated,
+} from 'react-native';
+import Geolocation from 'react-native-geolocation-service';
+import CompassHeading from 'react-native-compass-heading';
+
+const { width } = Dimensions.get('window');
+const COMPASS_SIZE = width * 0.8;
+const CENTER = COMPASS_SIZE / 2;
+const RADIUS = (COMPASS_SIZE - 40) / 2 - 10;
+
+const MAKKAH_LAT = 21.4225;
+const MAKKAH_LON = 39.8262;
+
+function calculateQiblaBearing(lat1, lon1) {
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const toDeg = (rad) => (rad * 180) / Math.PI;
+
+  const φ1 = toRad(lat1);
+  const φ2 = toRad(MAKKAH_LAT);
+  const Δλ = toRad(MAKKAH_LON - lon1);
+
+  const y = Math.sin(Δλ) * Math.cos(φ2);
+  const x =
+    Math.cos(φ1) * Math.sin(φ2) - Math.sin(φ1) * Math.cos(φ2) * Math.cos(Δλ);
+
+  let θ = Math.atan2(y, x);
+  θ = toDeg(θ);
+  return (θ + 360) % 360;
+}
+
+const QiblaCompass = () => {
+  const [coords, setCoords] = useState(null);
+  const [qiblaDirection, setQiblaDirection] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // Animated value for heading
+  const animatedHeading = useRef(new Animated.Value(0)).current;
+
+  // Keep track of last heading to handle rotation direction correctly
+  const lastHeading = useRef(0);
+
+  // Current heading for calculations and rendering
+  const [currentHeading, setCurrentHeading] = useState(0);
+
+  // Listen to animatedHeading changes
+  useEffect(() => {
+    const id = animatedHeading.addListener(({ value }) => {
+      setCurrentHeading(value % 360);
+    });
+    return () => {
+      animatedHeading.removeListener(id);
+    };
+  }, [animatedHeading]);
+
+  useEffect(() => {
+    const requestLocationPermission = async () => {
+      if (Platform.OS === 'android') {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: 'Location Permission',
+            message: 'App needs location access to find Qibla direction',
+            buttonNeutral: 'Ask Me Later',
+            buttonNegative: 'Cancel',
+            buttonPositive: 'OK',
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      }
+      return true;
+    };
+
+    const getLocation = async () => {
+      setLoading(true);
+      setErrorMsg(null);
+
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        setErrorMsg('Location permission denied');
+        setLoading(false);
+        return;
+      }
+
+      Geolocation.getCurrentPosition(
+        (position) => {
+          const { latitude, longitude } = position.coords;
+          setCoords(position.coords);
+          setQiblaDirection(calculateQiblaBearing(latitude, longitude));
+          setLoading(false);
+        },
+        (error) => {
+          setErrorMsg(error.message);
+          setLoading(false);
+        },
+        { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+      );
+    };
+
+    getLocation();
+  }, []);
+
+  useEffect(() => {
+    const degree_update_rate = 1;
+
+    CompassHeading.start(degree_update_rate, ({ heading }) => {
+      if (typeof heading === 'number') {
+        let newHeading = heading;
+
+        // Fix rotation animation to shortest path
+        let diff = newHeading - lastHeading.current;
+        if (diff > 180) {
+          newHeading -= 360;
+        } else if (diff < -180) {
+          newHeading += 360;
+        }
+
+        Animated.timing(animatedHeading, {
+          toValue: newHeading,
+          duration: 100,
+          useNativeDriver: true,
+          easing: (t) => t, // linear easing
+        }).start();
+
+        lastHeading.current = newHeading;
+      }
+    });
+
+    return () => {
+      CompassHeading.stop();
+    };
+  }, [animatedHeading]);
+
+  if (loading) {
+    return (
+      <View style={styles.centered}>
+        <ActivityIndicator size="large" color="#fff" />
+        <Text style={styles.loadingText}>Fetching location and heading...</Text>
+      </View>
+    );
+  }
+
+  if (errorMsg) {
+    return (
+      <View style={styles.centered}>
+        <Text style={styles.errorText}>Error: {errorMsg}</Text>
+      </View>
+    );
+  }
+
+  const difference =
+    qiblaDirection !== null
+      ? Math.abs(qiblaDirection - ((currentHeading + 360) % 360))
+      : null;
+  const angleDifference =
+    difference !== null ? (difference > 180 ? 360 - difference : difference) : null;
+
+  // Rotate compass circle smoothly
+  const rotate = animatedHeading.interpolate({
+    inputRange: [-360, 0, 360],
+    outputRange: ['-360deg', '0deg', '360deg'],
+  });
+
+  // Calculate position of "N" marker
+  const northAngle = ((-currentHeading + 270) * Math.PI) / 180;
+  const nX = CENTER + RADIUS * Math.cos(northAngle) - 8;
+  const nY = CENTER + RADIUS * Math.sin(northAngle) - 8;
+
+  // Needle rotation relative to compass
+  const needleRotate = qiblaDirection !== null
+    ? qiblaDirection - currentHeading
+    : 0;
+
+  return (
+    <View style={styles.container}>
+      <View
+        style={[
+          styles.compassContainer,
+          {
+            width: COMPASS_SIZE,
+            height: COMPASS_SIZE,
+            borderRadius: COMPASS_SIZE / 2,
+            borderWidth: 2,
+            borderColor: '#fff',
+            justifyContent: 'center',
+            alignItems: 'center',
+          },
+        ]}
+      >
+        <Animated.View
+          style={[
+            styles.compassCircle,
+            {
+              width: COMPASS_SIZE - 40,
+              height: COMPASS_SIZE - 40,
+              borderRadius: (COMPASS_SIZE - 40) / 2,
+              borderWidth: 1,
+              borderColor: '#ccc',
+              position: 'absolute',
+              top: 20,
+              left: 20,
+              transform: [{ rotate }],
+            },
+          ]}
+        />
+
+        {/* Qibla Needle */}
+        <Animated.View
+          style={[
+            styles.needleContainer,
+            {
+              transform: [{ rotate: `${needleRotate}deg` }],
+            },
+          ]}
+        >
+          <View style={styles.needle} />
+          <View style={styles.needleBase} />
+        </Animated.View>
+
+        {/* Center Dot */}
+        <View style={styles.centerDot} />
+
+        {/* "N" Marker */}
+        <Text
+          style={[
+            styles.northText,
+            {
+              position: 'absolute',
+              top: nY,
+              left: nX,
+              transform: [{ rotate: `${currentHeading}deg` }],
+            },
+          ]}
+        >
+          N
+        </Text>
+      </View>
+
+      <Text style={styles.directionText}>
+        Qibla: {angleDifference !== null ? angleDifference.toFixed(0) : 'N/A'}°
+      </Text>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#000',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  compassContainer: {
+    position: 'relative',
+  },
+  compassCircle: {
+    backgroundColor: '#222',
+  },
+  needleContainer: {
+    width: 0,
+    height: 0,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  needle: {
+    width: 0,
+    height: 0,
+    borderLeftWidth: 12,
+    borderRightWidth: 12,
+    borderBottomWidth: 60,
+    borderLeftColor: 'transparent',
+    borderRightColor: 'transparent',
+    borderBottomColor: '#FF4500',
+    shadowColor: '#FF4500',
+    shadowOpacity: 0.9,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 0 },
+  },
+  needleBase: {
+    width: 14,
+    height: 14,
+    backgroundColor: '#FF4500',
+    borderRadius: 7,
+    position: 'absolute',
+    top: 50,
+    left: -7,
+  },
+  centerDot: {
+    width: 16,
+    height: 16,
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    position: 'absolute',
+    top: CENTER - 8,
+    left: CENTER - 8,
+  },
+  northText: {
+    color: 'red',
+    fontSize: 18,
+    fontWeight: 'bold',
+  },
+  directionText: {
+    marginTop: 30,
+    fontSize: 20,
+    color: '#fff',
+    fontWeight: 'bold',
+  },
+  loadingText: {
+    color: '#999',
+    marginTop: 10,
+    fontSize: 16,
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 16,
+  },
+  centered: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+});
+
+export default QiblaCompass;
