@@ -1,97 +1,94 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# 📱 Zeba: Your Spiritual Journey
 
-# Getting Started
+✨ **Zeba** is a beautifully crafted spiritual companion app built with **React Native**. It helps users stay spiritually connected by providing:
+- 📍 Qibla Direction
+- 🕰️ Prayer Times (location-aware)
+- 📖 Access to the Quran
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+---
 
-## Step 1: Start Metro
+## 🚀 Getting Started
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+> ⚠️ Make sure you’ve completed the official [React Native environment setup](https://reactnative.dev/docs/environment-setup) before continuing.
 
-To start the Metro dev server, run the following command from the root of your React Native project:
+### 1. Start Metro Bundler
 
-```sh
+```bash
 # Using npm
 npm start
 
 # OR using Yarn
 yarn start
-```
-
-## Step 2: Build and run your app
-
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
+2. Run the App
+✅ Android
+bash
+Copy code
 # Using npm
 npm run android
 
 # OR using Yarn
 yarn android
-```
+🍎 iOS
+First, install CocoaPods dependencies:
 
-### iOS
-
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
-
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
-
-```sh
+bash
+Copy code
 bundle install
-```
-
-Then, and every time you update your native dependencies, run:
-
-```sh
 bundle exec pod install
-```
+Then run:
 
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
+bash
+Copy code
 npm run ios
-
-# OR using Yarn
+# OR
 yarn ios
-```
+✍️ Modify the App
+Open the entry point file:
 
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
+bash
+Copy code
+App.tsx
+Any saved changes will reflect automatically thanks to Fast Refresh.
 
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
+📸 Screenshots
+Home Screen	Prayer Times Screen
 
-## Step 3: Modify your app
+Make sure you store your screenshots in the assets/screens/ directory or update the paths above.
 
-Now that you have successfully run the app, let's make changes!
+🎥 Demo Video
+https://your-video-link-here.com
+Or embed a YouTube/Loom link directly here.
 
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
+📚 Learn More
+React Native Docs
 
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
+Fast Refresh
 
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
+Troubleshooting Guide
 
-## Congratulations! :tada:
+🧑‍💻 Author
+Zeba Academy
+Stay Connected, Stay Blessed ✨
+© 2025 zeba.academy, All rights reserved.
 
-You've successfully run and modified your React Native App. :partying_face:
+yaml
+Copy code
 
-### Now what?
+---
 
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
+### ✅ What to Do Next
 
-# Troubleshooting
+1. Place your screenshots in your project folder, e.g.:
+/assets/screens/home.png
+/assets/screens/times.png
 
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
+yaml
+Copy code
 
-# Learn More
+2. If you have the **screen recording video**:
+- Upload it to a platform (YouTube, Loom, etc.)
+- Replace the video URL in the `🎥 Demo Video` section
 
-To learn more about React Native, take a look at the following resources:
+---
 
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+Let me know if you'd like the `README.md` file as a downloadable `.md` file or want to embed the video directly 
