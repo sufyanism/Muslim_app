@@ -29,7 +29,7 @@ npm run android
 # OR using Yarn
 yarn android
 🍎 iOS
-First, install CocoaPods dependencies:
+First, install CocoaPods dependencies (only needed the first time or when native dependencies change):
 
 bash
 Copy code
@@ -43,24 +43,34 @@ npm run ios
 # OR
 yarn ios
 ✍️ Modify the App
-Open the entry point file:
+Open the main file to start editing:
 
 bash
 Copy code
 App.tsx
-Any saved changes will reflect automatically thanks to Fast Refresh.
+Your changes will reflect instantly with Fast Refresh enabled.
 
 📸 Screenshots
-Home Screen	Prayer Times Screen
+Home Screen
+## 📸 Screenshots
 
-Make sure you store your screenshots in the assets/screens/ directory or update the paths above.
+### Home Screen  
+<img width="403" height="902" alt="Home Screen" src="./assets/screenrecord/home.png" />
+
+### Prayer Time Screen  
+<img width="403" height="902" alt="Prayer Time Screen" src="./assets/screenshots/times.png" />
+
+### Qibla Direction Screen  
+<img width="400" height="904" alt="Qibla Direction Screen" src="./assets/screenrecord/direction.png" />
+
+✅ Tip: If you're not using GitHub-hosted images, store your screenshots locally in assets/screens/ or assets/screenrecord/ and update the paths.
 
 🎥 Demo Video
-https://your-video-link-here.com
+Watch Demo
 Or embed a YouTube/Loom link directly here.
 
 📚 Learn More
-React Native Docs
+React Native Documentation
 
 Fast Refresh
 
@@ -71,24 +81,22 @@ Zeba Academy
 Stay Connected, Stay Blessed ✨
 © 2025 zeba.academy, All rights reserved.
 
-yaml
+✅ What to Do Next
+Make sure your images are stored properly:
+
+bash
 Copy code
+/assets/screenrecord/home.png
+/assets/screenrecord/times.png
+/assets/screenrecord/direction.png
+Upload your screen recording to:
 
----
+YouTube
 
-### ✅ What to Do Next
+Loom
 
-1. Place your screenshots in your project folder, e.g.:
-/assets/screens/home.png
-/assets/screens/times.png
+Or GitHub (via Releases)
 
-yaml
-Copy code
+Then update the 🎥 Demo Video section with the correct link.
 
-2. If you have the **screen recording video**:
-- Upload it to a platform (YouTube, Loom, etc.)
-- Replace the video URL in the `🎥 Demo Video` section
-
----
-
-Let me know if you'd like the `README.md` file as a downloadable `.md` file or want to embed the video directly 
+Happy coding! 🌟
