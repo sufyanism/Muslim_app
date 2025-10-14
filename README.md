@@ -3,12 +3,14 @@
 A React Native mobile application built with [`@react-native-community/cli`](https://github.com/react-native-community/cli).  
 This app provides useful Islamic tools and resources such as **Qibla Direction, Surah Reader, Prayer Timings, and more.**  
 
+</br>
 
 ## 🌙 Powered by Zeba Books
 
 This app is part of the **Zeba Books** initiative, focused on delivering quality Islamic and educational apps for everyone.  
 Visit us at 👉 [zeba.academy](https://zeba.academy)  
 
+</br>
 
 ## 🚀 Getting Started
 
@@ -48,6 +50,8 @@ npm run ios
 yarn ios
 ```
 
+</br>
+
 ## 📸 Screenshots & Pages
 
 ### 🏠 Home Screen
@@ -65,7 +69,7 @@ The **Qibla Direction Screen** uses the device’s compass to show the accurate 
 ### 🕓 Prayer Timing
 The **Prayer Timing Screen** displays daily prayer times along with motivational hadith reminders.  
 
-
+</br>
 
 ## 📸 Screenshots
 
@@ -77,7 +81,7 @@ The **Prayer Timing Screen** displays daily prayer times along with motivational
 |-----------------|---------------|
 | ![Direction](./assets/screenshots/direction.png) | ![Timing](./assets/screenshots/timing.png) |
 
-
+</br>
 
 ## 🎥 Demo Video
 
@@ -89,7 +93,7 @@ Here’s a short demo of the app in action:
 ![App Demo](./assets/screenshots/demo.gif)
 ```
 
-
+</br>
 
 ## 🛠 Tech Stack
 
@@ -97,7 +101,7 @@ Here’s a short demo of the app in action:
 - Metro bundler  
 - Android/iOS native build  
 
-
+</br>
 
 ## 👨‍💻 Development
 
