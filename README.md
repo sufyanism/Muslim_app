@@ -87,10 +87,11 @@ The **Prayer Timing Screen** displays daily prayer times along with motivational
 
 Here’s a short demo of the app in action:  
 
-👉 [Watch Demo](./assets/screenshots/demo.mp4)  
+[Watch Demo](./assets/screenshots/demo.mp4)  
 
 ```markdown
 ![App Demo](./assets/screenshots/demo.gif)
+
 ```
 
 </br>
