@@ -83,19 +83,6 @@ The **Prayer Timing Screen** displays daily prayer times along with motivational
 
 </br>
 
-## 🎥 Demo Video
-
-Here’s a short demo of the app in action:  
-
-[Watch Demo](./assets/screenshots/demo.mp4)  
-
-```markdown
-![App Demo](./assets/screenshots/demo.gif)
-
-```
-
-</br>
-
 ## 🛠 Tech Stack
 
 - [React Native](https://reactnative.dev)  
