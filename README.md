@@ -1,14 +1,7 @@
-# Muslim App 📱
+# Prayer 📱
 
 A React Native mobile application built with [`@react-native-community/cli`](https://github.com/react-native-community/cli).  
 This app provides useful Islamic tools and resources such as **Qibla Direction, Surah Reader, Prayer Timings, and more.**  
-
-</br>
-
-## 🌙 Powered by Zeba Books
-
-This app is part of the **Zeba Books** initiative, focused on delivering quality Islamic and educational apps for everyone.  
-Visit us at 👉 [zeba.academy](https://zeba.academy)  
 
 </br>
 
